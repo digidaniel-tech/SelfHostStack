@@ -1,0 +1,109 @@
+services:
+  nginx:
+    container_name: nginx
+    depends_on:
+      - magento
+    image: nginx:latest
+    ports:
+      - 8080:80
+    networks:
+      - frontend
+
+  db:
+    image: mysql:8.0
+    container_name: db
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 40s
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: "magento"
+      MYSQL_USER: "magento"
+      MYSQL_PASSWORD: "magento"
+    env_file:
+      - .env
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - backend
+
+  elasticsearch:
+    image: elasticsearch:7.17.23
+    container_name: elasticsearch
+    ports:
+      - 9200:9200
+      - 9300:9300
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    environment:
+      - discovery.type=single-node
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - backend
+
+  magento:
+    container_name: magento
+    image: digidanieltech/magento2ce:php8.2-fpm-bookworm
+    depends_on:
+      db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost/index.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    environment:
+      # Required for creating the magento project
+      MAGENTO_VERSION: 2.4.6
+      MAGENTO_PUBLIC_KEY: ${MAGENTO_PUBLIC_KEY} # Loaded from environment variable for security
+      MAGENTO_SECRET_KEY: ${MAGENTO_SECRET_KEY} # Loaded from environment variable for security
+
+      # When installning magento you can preconfigure multiple configurations using environment variables
+      # all supported configurations can be found on adobe's website and can be set as environment variables
+      # https://experienceleague.adobe.com/en/docs/commerce-operations/installation-guide/advanced#install-from-the-command-line
+      #
+      # Each property need to be transformed with uppercase, dashes in the beginning of the property needs
+      # to be removed and dashes between words need to be replaced with underscores.
+      # ex. --admin-firstname will be transformed to ADMIN_FIRSTNAME
+
+      # Required for install of magento
+      ADMIN_FIRSTNAME: "admin"
+      ADMIN_LASTNAME: "admin"
+      ADMIN_EMAIL: "admin@digidaniel.se"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "admin123"
+      BASE_URL: "https://localhost/"
+      DB_PASSWORD: "magento"
+
+      # Custom properties for this example
+      DB_HOST: "db"
+      DB_NAME: "magento"
+      DB_USER: "magento"
+      SEARCH_ENGINE: "elasticsearch7"
+      ELASTICSEARCH_HOST: "elasticsearch"
+    volumes:
+      - magento:/app
+    env_file:
+      - .env
+    networks:
+      - backend
+
+volumes:
+  magento:
+  db_data:
+  es_data:
+
+networks:
+  frontend:
+  backend:
