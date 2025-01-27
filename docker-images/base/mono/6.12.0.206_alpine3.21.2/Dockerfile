@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM alpine:3.21.2
+FROM digidanieltech/alpine:3.21.2
 
 ARG VERSION=6.12.0.206
 ENV MONO_VERSION=${VERSION}
