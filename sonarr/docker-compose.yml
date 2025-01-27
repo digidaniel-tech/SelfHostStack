@@ -1,0 +1,9 @@
+name: "Arr Collection"
+
+services:
+  sonarr:
+    build:
+      context: .
+      dockerfile: images/sonarr/Dockerfile
+    ports:
+      - 5334:80
